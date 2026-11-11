@@ -1,0 +1,8 @@
+# Sample configuration for Apache 2.4. See README.md for AllowOverride requirements.
+DirectoryIndex index.php
+Options -Indexes
+
+# Deny direct access to dotfiles, including the SQLite database and its journals.
+<FilesMatch "^[.]">
+    Require all denied
+</FilesMatch>
