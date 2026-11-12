@@ -111,6 +111,10 @@ function scanIfDue(PDO $db, bool $force = false): void
                 continue;
             }
             $path = substr($file->getPathname(), strlen(__DIR__) + 1);
+            // The favicon files are UI assets, not gallery content.
+            if ($path === 'icon.png' || $path === 'mobile-icon.png') {
+                continue;
+            }
             $upsert->execute([$path, $file->getMTime(), $file->getSize()]);
         }
         $db->exec('DELETE FROM images WHERE seen = 0');
@@ -322,6 +326,8 @@ header('Cache-Control: no-store');
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <link rel="icon" type="image/png" href="icon.png">
+    <!-- Mobile browsers (iOS Safari, Android Chrome "add to home screen") use the touch icon instead of the desktop favicon. -->
+    <link rel="apple-touch-icon" href="mobile-icon.png">
     <title><?php /*= $image ? escape($title) : 'Photoboob' */?>Photoboob</title>
     <style>
         * { box-sizing: border-box; }
