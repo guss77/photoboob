@@ -16,6 +16,27 @@ function escape(string $value): string
     return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+// A subdirectory that cannot be read (permissions, deleted mid-scan, ...)
+// must not abort the whole scan: hasChildren() returns false so the
+// iterator never descends into it, and the directory is simply skipped.
+// RecursiveDirectoryIterator::getChildren() would otherwise throw an
+// UnexpectedValueException for such directories.
+class SkippableDirectoryIterator extends RecursiveDirectoryIterator
+{
+    public function hasChildren(?bool $allowLinks = null): bool
+    {
+        if (!is_readable($this->getPathname())) {
+            error_log('Photoboob: skipping unreadable directory: ' . $this->getPathname());
+            return false;
+        }
+        // Omit the argument when unset: the parent's accepted parameter
+        // types differ between PHP versions (bool vs ?bool).
+        return $allowLinks === null
+            ? parent::hasChildren()
+            : parent::hasChildren($allowLinks);
+    }
+}
+
 function accepts(string $header, string $type): bool
 {
     // More specific media ranges override less specific ones, even at q=0.
@@ -78,7 +99,7 @@ function scanIfDue(PDO $db, bool $force = false): void
         $upsert = $db->prepare('INSERT INTO images (path, modified, size, seen) VALUES (?, ?, ?, 1)
             ON CONFLICT(path) DO UPDATE SET modified = excluded.modified, size = excluded.size, seen = 1');
         $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator(__DIR__, FilesystemIterator::SKIP_DOTS)
+            new SkippableDirectoryIterator(__DIR__, FilesystemIterator::SKIP_DOTS)
         );
         foreach ($iterator as $file) {
             // Do not follow symlinks, which could expose files outside the gallery.
@@ -305,8 +326,8 @@ header('Cache-Control: no-store');
     <style>
         * { box-sizing: border-box; }
         html, body { width: 100%; height: 100%; margin: 0; background: #111; color: #ddd; font-family: system-ui, sans-serif; }
-        .viewer { position: fixed; inset: 0; overflow: hidden; }
-        .photo { width: 100%; height: 100%; object-fit: contain; display: block; }
+        .viewer { position: fixed; inset: 0; overflow: hidden; touch-action: pan-y; }
+        .photo { width: 100%; height: 100%; object-fit: contain; display: block; -webkit-user-drag: none; user-select: none; }
         .title { position: absolute; top: 0; left: 0; right: 0; padding: max(12px, env(safe-area-inset-top)) 16px 12px; text-align: center; overflow-wrap: anywhere; background: linear-gradient(#000b, transparent); text-shadow: 0 1px 3px #000; }
         .controls { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); display: flex; justify-content: space-between; align-items: flex-end; gap: 4px; }
         .column { display: flex; flex-direction: column; }
@@ -325,7 +346,7 @@ header('Cache-Control: no-store');
 <?php else: ?>
     <main class="viewer">
         <?php $imageSource = 'index.php/' . implode('/', array_map('rawurlencode', explode('/', $image['path']))); ?>
-        <img class="photo" src="<?= escape($imageSource) ?>" alt="<?= escape($title) ?>">
+        <img class="photo" src="<?= escape($imageSource) ?>" alt="<?= escape($title) ?>" draggable="false">
         <div class="title"><?= escape($title) ?></div>
         <nav class="controls" aria-label="Image actions">
             <div class="column">
@@ -363,6 +384,38 @@ header('Cache-Control: no-store');
                 window.location.href = destinations[event.key];
             }
         });
+    </script>
+    <script>
+        // Touch swipes reuse the navigation buttons' URLs. A mostly horizontal
+        // swipe to the left goes to the next image, to the right the previous one.
+        (function () {
+            const viewer = document.querySelector('.viewer');
+            if (!viewer) return;
+            const go = function (label) {
+                const link = document.querySelector('a[aria-label="' + label + '"]');
+                if (link) window.location.href = link.getAttribute('href');
+            };
+            let swipe = null;
+            viewer.addEventListener('pointerdown', function (event) {
+                // A second finger cancels the swipe, e.g. during a pinch zoom.
+                if (swipe !== null || !event.isPrimary || event.target.closest('.controls')) {
+                    swipe = null;
+                    return;
+                }
+                swipe = { id: event.pointerId, x: event.clientX, y: event.clientY, time: Date.now() };
+            });
+            viewer.addEventListener('pointerup', function (event) {
+                if (!swipe || event.pointerId !== swipe.id) return;
+                const dx = event.clientX - swipe.x;
+                const dy = event.clientY - swipe.y;
+                const elapsed = Date.now() - swipe.time;
+                swipe = null;
+                if (elapsed > 1500 || Math.abs(dx) < 60 || Math.abs(dx) < 2 * Math.abs(dy)) return;
+                event.preventDefault();
+                go(dx < 0 ? 'Next image' : 'Previous image');
+            });
+            viewer.addEventListener('pointercancel', function () { swipe = null; });
+        })();
     </script>
 <?php endif; ?>
 </body>

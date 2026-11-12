@@ -8,7 +8,7 @@ Requires PHP 7.4 or newer with PDO SQLite, and write access to the project direc
 php -S localhost:8000 -t .
 ```
 
-Open <http://localhost:8000/>. The app creates `.photoboob.sqlite` and scans on the first request and hourly thereafter when accessed. If a selected image is missing, it immediately rescans and resolves the ID against the refreshed list. Images removed from disk are removed from the database at the next scan, including their flags. Navigation IDs are 1-based positions in path order and can change when the gallery changes. An out-of-range ID returns 404.
+Open <http://localhost:8000/>. The app creates `.photoboob.sqlite` and scans on the first request and hourly thereafter when accessed. If a selected image is missing, it immediately rescans and resolves the ID against the refreshed list. Images removed from disk are removed from the database at the next scan, including their flags. Navigation IDs are 1-based positions in path order and can change when the gallery changes. An out-of-range ID returns 404. Subdirectories that cannot be read (e.g. due to permissions) are skipped during a scan instead of failing it; each skip is noted in the PHP error log.
 
 The arrow keys navigate, Home and End jump to the first and last image, and R picks a random image. The on-screen controls also work without JavaScript.
 
