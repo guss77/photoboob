@@ -22,8 +22,8 @@ define('ICON_RANDOM', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6
 define('ICON_FLAG', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4m0 1c6-3 8 3 14 0v10c-6 3-8-3-14 0"/></svg>');
 
 // Extra glyphs for the flagged-only browser
-define('ICON_EXIT', '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M11 5l5 5-5 5"/></svg>');
-define('ICON_ERASE', '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 8l8 8M16 8l-8 8M10 7l8 8M18 7l-8 8"/></svg>');
+define('ICON_EXIT', '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12l6-5M8 12l6 5"/></svg>');
+define('ICON_ERASE', '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 8l8 8M16 8l-8 8"/></svg>');
 
 /**
  * Escape HTML characters in UTF-8
