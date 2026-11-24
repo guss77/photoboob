@@ -528,6 +528,51 @@ header('Cache-Control: no-store');
 </head>
 <body>
 <?php
+// Touch swipes reuse the navigation buttons' URLs. A mostly horizontal
+// swipe to the left goes to the next image, to the right the previous one.
+// The same script serves both the normal browser and flagged-only mode.
+?>
+<script>
+	(function () {
+		const setup = function () {
+			const viewer = document.querySelector('.viewer');
+			if (!viewer) return;
+			const go = function (label) {
+				const link = viewer.querySelector('a[aria-label="' + label + ' image"]')
+					|| viewer.querySelector('a[aria-label="' + label + ' flagged image"]');
+				if (link) window.location.href = link.getAttribute('href');
+			};
+			let swipe = null;
+			viewer.addEventListener('pointerdown', function (event) {
+				// A second finger cancels the swipe, e.g. during a pinch zoom.
+				if (swipe !== null || !event.isPrimary || event.target.closest('.controls')) {
+					swipe = null;
+					return;
+				}
+				swipe = { id: event.pointerId, x: event.clientX, y: event.clientY, time: Date.now() };
+			});
+			viewer.addEventListener('pointerup', function (event) {
+				if (!swipe || event.pointerId !== swipe.id) return;
+				const dx = event.clientX - swipe.x;
+				const dy = event.clientY - swipe.y;
+				const elapsed = Date.now() - swipe.time;
+				swipe = null;
+				if (elapsed > 1500 || Math.abs(dx) < 60 || Math.abs(dx) < 2 * Math.abs(dy)) return;
+				event.preventDefault();
+				go(dx < 0 ? 'Next' : 'Previous');
+			});
+			viewer.addEventListener('pointercancel', function () { swipe = null; });
+		};
+		// The viewer markup is emitted after this script, so wait for the
+		// document to load.
+		if (document.readyState === 'loading') {
+			document.addEventListener('DOMContentLoaded', setup);
+		} else {
+			setup();
+		}
+	})();
+</script>
+<?php
 // Render the flagged-only browser now that the page skeleton (and its
 // CSS) is in place; exits the request on success.
 if ($flagMode || $eraseFlags) {
@@ -613,38 +658,6 @@ if ($flagMode || $eraseFlags) {
 				}
 				if (entered) event.preventDefault();
 			});
-		})();
-	</script>
-	<script>
-		// Touch swipes reuse the navigation buttons' URLs. A mostly horizontal
-		// swipe to the left goes to the next image, to the right the previous one.
-		(function () {
-			const viewer = document.querySelector('.viewer');
-			if (!viewer) return;
-			const go = function (label) {
-				const link = document.querySelector('a[aria-label="' + label + '"]');
-				if (link) window.location.href = link.getAttribute('href');
-			};
-			let swipe = null;
-			viewer.addEventListener('pointerdown', function (event) {
-				// A second finger cancels the swipe, e.g. during a pinch zoom.
-				if (swipe !== null || !event.isPrimary || event.target.closest('.controls')) {
-					swipe = null;
-					return;
-				}
-				swipe = { id: event.pointerId, x: event.clientX, y: event.clientY, time: Date.now() };
-			});
-			viewer.addEventListener('pointerup', function (event) {
-				if (!swipe || event.pointerId !== swipe.id) return;
-				const dx = event.clientX - swipe.x;
-				const dy = event.clientY - swipe.y;
-				const elapsed = Date.now() - swipe.time;
-				swipe = null;
-				if (elapsed > 1500 || Math.abs(dx) < 60 || Math.abs(dx) < 2 * Math.abs(dy)) return;
-				event.preventDefault();
-				go(dx < 0 ? 'Next image' : 'Previous image');
-			});
-			viewer.addEventListener('pointercancel', function () { swipe = null; });
 		})();
 	</script>
 	<?php if ($showNoFlaggedPopup): ?>
