@@ -12,6 +12,19 @@ const IMAGE_TYPES = [
 	'heif' => 'image/heif',
 ];
 
+// Icons for the navigation and flag buttons, shared by the normal and the
+// flagged-only browsers
+define('ICON_FIRST', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16M19 5 9 12l10 7z"/></svg>');
+define('ICON_PREV', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg>');
+define('ICON_NEXT', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>');
+define('ICON_LAST', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4v16M5 5l10 7-10 7z"/></svg>');
+define('ICON_RANDOM', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h3c5 0 6 12 12 12h3m-3-3 3 3-3 3M3 18h3c2 0 3-2 4-4m3-5c1-2 3-3 5-3h3m-3-3 3 3-3 3"/></svg>');
+define('ICON_FLAG', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4m0 1c6-3 8 3 14 0v10c-6 3-8-3-14 0"/></svg>');
+
+// Extra glyphs for the flagged-only browser
+define('ICON_EXIT', '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M11 5l5 5-5 5"/></svg>');
+define('ICON_ERASE', '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 8l8 8M16 8l-8 8M10 7l8 8M18 7l-8 8"/></svg>');
+
 /**
  * Escape HTML characters in UTF-8
  * @param $value text to escape
@@ -283,16 +296,16 @@ function renderFlaggedView(PDO $db, int $prevId): bool
 		<div class="title"><?= escape($title) ?></div>
 		<nav class="controls" aria-label="Image actions">
 			<div class="column">
-				<a class="action" href="<?= escape('?fo=1&foid=0' . $backParam) ?>" aria-label="First flagged image" title="First flagged image"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16M19 5 9 12l10 7z"/></svg></a>
-				<a class="action" href="<?= escape('?fo=1&foid=' . max(0, $n - 1) . $backParam) ?>" aria-label="Previous flagged image" title="Previous flagged image"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7z"/></svg></a>
+				<a class="action" href="<?= escape('?fo=1&foid=0' . $backParam) ?>" aria-label="First flagged image" title="First flagged image"><?= ICON_FIRST ?></a>
+				<a class="action" href="<?= escape('?fo=1&foid=' . max(0, $n - 1) . $backParam) ?>" aria-label="Previous flagged image" title="Previous flagged image"><?= ICON_PREV ?></a>
 			</div>
 			<div class="middle">
-				<a class="action flagAction" href="<?= escape('?id=' . $prevId) ?>" aria-label="Exit flagged-only mode" title="Exit flagged-only mode">↩</a>
-				<a class="action" href="<?= escape('?fo=erase' . $backParam) ?>" aria-label="Erase all flags and exit" title="Erase all flags and exit">⌫</a>
+				<a class="action flagAction" href="<?= escape('?id=' . $prevId) ?>" aria-label="Exit flagged-only mode" title="Exit flagged-only mode"><?= ICON_EXIT ?></a>
+				<a class="action" href="<?= escape('?fo=erase' . $backParam) ?>" aria-label="Erase all flags and exit" title="Erase all flags and exit"><?= ICON_ERASE ?></a>
 			</div>
 			<div class="column">
-				<a class="action" href="<?= escape('?fo=1&foid=' . ($count - 1) . $backParam) ?>" aria-label="Last flagged image" title="Last flagged image"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4v16M5 5l10 7-10 7z"/></svg></a>
-				<a class="action" href="<?= escape('?fo=1&foid=' . min($count - 1, $n + 1) . $backParam) ?>" aria-label="Next flagged image" title="Next flagged image"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7z"/></svg></a>
+				<a class="action" href="<?= escape('?fo=1&foid=' . ($count - 1) . $backParam) ?>" aria-label="Last flagged image" title="Last flagged image"><?= ICON_LAST ?></a>
+				<a class="action" href="<?= escape('?fo=1&foid=' . min($count - 1, $n + 1) . $backParam) ?>" aria-label="Next flagged image" title="Next flagged image"><?= ICON_NEXT ?></a>
 			</div>
 			<span class="flagBrackets" aria-hidden="true">[</span>
 			<form method="post">
@@ -300,7 +313,7 @@ function renderFlaggedView(PDO $db, int $prevId): bool
 				<input type="hidden" name="fo" value="1">
 				<input type="hidden" name="foid" value="<?= (int) $n ?>">
 				<input type="hidden" name="nid" value="<?= (int) $prevId ?>">
-				<button class="action flagButton" type="submit" aria-label="Flag image" aria-pressed="true" title="Flag image"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4m0 1c6-3 8 3 14 0v10c-6 3-8-3-14 0"/></svg></button>
+				<button class="action flagButton" type="submit" aria-label="Flag image" aria-pressed="true" title="Flag image"><?= ICON_FLAG ?></button>
 			</form>
 			<span class="flagBrackets" aria-hidden="true">]</span>
 		</nav>
@@ -544,20 +557,20 @@ if ($flagMode || $eraseFlags) {
 		<div class="title"><?= escape($title) ?></div>
 		<nav class="controls" aria-label="Image actions">
 			<div class="column">
-				<a class="action" href="?id=1" aria-label="First image" title="First image"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16M19 5 9 12l10 7z"/></svg></a>
-				<a class="action" href="?id=<?= max(1, $id - 1) ?>" aria-label="Previous image" title="Previous image"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></a>
+				<a class="action" href="?id=1" aria-label="First image" title="First image"><?= ICON_FIRST ?></a>
+				<a class="action" href="?id=<?= max(1, $id - 1) ?>" aria-label="Previous image" title="Previous image"><?= ICON_PREV ?></a>
 			</div>
 			<div class="middle">
-				<a class="action" href="?" aria-label="Random image" title="Random image"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h3c5 0 6 12 12 12h3m-3-3 3 3-3 3M3 18h3c2 0 3-2 4-4m3-5c1-2 3-3 5-3h3m-3-3 3 3-3 3"/></svg></a>
+				<a class="action" href="?" aria-label="Random image" title="Random image"><?= ICON_RANDOM ?></a>
 				<form method="post">
 					<input type="hidden" name="path" value="<?= escape($image['path']) ?>">
 					<input type="hidden" name="nid" value="<?= (int) $id ?>">
-					<button class="action<?= $image['flagged'] ? ' flagged' : '' ?> flagButton" type="submit" aria-label="<?= $image['flagged'] ? 'Remove flag' : 'Flag image' ?>" aria-pressed="<?= $image['flagged'] ? 'true' : 'false' ?>" title="<?= $image['flagged'] ? 'Remove flag' : 'Flag image' ?>"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4m0 1c6-3 8 3 14 0v10c-6 3-8-3-14 0"/></svg></button>
+					<button class="action<?= $image['flagged'] ? ' flagged' : '' ?> flagButton" type="submit" aria-label="<?= $image['flagged'] ? 'Remove flag' : 'Flag image' ?>" aria-pressed="<?= $image['flagged'] ? 'true' : 'false' ?>" title="<?= $image['flagged'] ? 'Remove flag' : 'Flag image' ?>"><?= ICON_FLAG ?></button>
 				</form>
 			</div>
 			<div class="column">
-				<a class="action" href="?id=<?= $count ?>" aria-label="Last image" title="Last image"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4v16M5 5l10 7-10 7z"/></svg></a>
-				<a class="action" href="?id=<?= min($count, $id + 1) ?>" aria-label="Next image" title="Next image"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></a>
+				<a class="action" href="?id=<?= $count ?>" aria-label="Last image" title="Last image"><?= ICON_LAST ?></a>
+				<a class="action" href="?id=<?= min($count, $id + 1) ?>" aria-label="Next image" title="Next image"><?= ICON_NEXT ?></a>
 			</div>
 		</nav>
 	</main>
