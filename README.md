@@ -10,7 +10,7 @@ php -S localhost:8000 -t .
 
 Open <http://localhost:8000/>. The app creates `.photoboob.sqlite` and scans on the first request and hourly thereafter when accessed. If a selected image is missing, it immediately rescans and resolves the ID against the refreshed list. Images removed from disk are removed from the database at the next scan, including their flags. Navigation IDs are 1-based positions in path order and can change when the gallery changes. An out-of-range ID returns 404. Subdirectories that cannot be read (e.g. due to permissions) are skipped during a scan instead of failing it; each skip is noted in the PHP error log.
 
-The arrow keys navigate, Home and End jump to the first and last image, and R picks a random image. The on-screen controls also work without JavaScript.
+The arrow keys navigate, Home and End jump to the first and last image, and R picks a random image. Holding the flag button for two seconds enters *flagged-only mode*: the browser shows only flagged images, starting with the first one; the exit button returns to the normal browser at the saved index, and the erase button clears all flags, rescans, and exits the mode. If there are no flagged images (at entry or later while browsing), an OK-able message is shown and the browser reverts to normal mode. The on-screen controls also work without JavaScript.
 
 Request flagged images without accepting HTML, for example:
 

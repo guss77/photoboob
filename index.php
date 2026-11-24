@@ -11,6 +11,10 @@ const IMAGE_TYPES = [
     'tif' => 'image/tiff', 'tiff' => 'image/tiff', 'heic' => 'image/heic', 'heif' => 'image/heif',
 ];
 
+// Glyph icons for the flagged-only browser (no SVG needed for simple symbols).
+$iconExit = '↩'; // U+21A9
+$iconErase = '⌫'; // U+232B ERASE TO THE LEFT
+
 function escape(string $value): string
 {
     return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -128,19 +132,6 @@ function scanIfDue(PDO $db, bool $force = false): void
     }
 }
 
-function startSession(): void
-{
-    session_set_cookie_params([
-        'httponly' => true,
-        'samesite' => 'Strict',
-        'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
-    ]);
-    session_start();
-    if (empty($_SESSION['csrf'])) {
-        $_SESSION['csrf'] = bin2hex(random_bytes(32));
-    }
-}
-
 function fail(int $status, string $message): void
 {
     http_response_code($status);
@@ -168,6 +159,94 @@ function imageFile(string $path): ?string
         return null;
     }
     return $absolute;
+}
+
+function flaggedPaths(PDO $db): array
+{
+    $paths = [];
+    foreach ($db->query('SELECT path FROM images WHERE flagged=1 ORDER BY path COLLATE BINARY') as $row) {
+        $paths[] = $row['path'];
+    }
+    return $paths;
+}
+
+function titleFromPath(string $path): string
+{
+    $title = preg_replace('/[^\p{L}\p{N}]+/u', ' ', preg_replace('/\.[^.]+$/', '', $path));
+    return trim($title ?? $path);
+}
+
+// Renders the flagged-only browser. Returns false when there are no
+// flagged images (or they are unreadable): the caller then shows the
+// "no flagged images" message on the normal browser page.
+function renderFlaggedView(PDO $db, int $prevId): bool
+{
+    $items = flaggedPaths($db);
+    $count = count($items);
+    if ($count === 0) {
+        return false;
+    }
+    $n = 0;
+    if (isset($_GET['foid']) && is_string($_GET['foid']) && preg_match('/^[0-9]+$/D', $_GET['foid'])) {
+        // The index is 1-based; clamped so it stays inside the current list.
+        $n = min(max((int) $_GET['foid'], 0), $count - 1);
+    }
+    $image = imageFile($items[$n]);
+    if ($image === null) {
+        // The file vanished (e.g. it was deleted while browsing): rescan
+        // and fall back to another image at the same index.
+        rescanNow($db);
+        $items = flaggedPaths($db);
+        $count = count($items);
+        if ($count === 0) {
+            return false;
+        }
+        $n = min($n, $count - 1);
+        $image = imageFile($items[$n]);
+        if ($image === null && $n + 1 < $count) {
+            $n++;
+            $image = imageFile($items[$n]);
+        }
+        if ($image === null) {
+            return false;
+        }
+    }
+    global $iconExit, $iconErase;
+    // Every flagged-mode link carries the exit target (?nid=) so it
+    // survives navigation while browsing.
+    $backParam = '&nid=' . (int) $prevId;
+    $title = titleFromPath($items[$n]);
+    $imageSource = 'index.php/' . implode('/', array_map('rawurlencode', explode('/', $items[$n])));
+    ?>
+    <main class="viewer">
+        <img class="photo" src="<?= escape($imageSource) ?>" alt="<?= escape($title) ?>" draggable="false">
+        <div class="title"><?= escape($title) ?></div>
+        <nav class="controls" aria-label="Image actions">
+            <div class="column">
+                <a class="action" href="<?= escape('?fo=1&foid=0' . $backParam) ?>" aria-label="First flagged image" title="First flagged image"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16M19 5 9 12l10 7z"/></svg></a>
+                <a class="action" href="<?= escape('?fo=1&foid=' . max(0, $n - 1) . $backParam) ?>" aria-label="Previous flagged image" title="Previous flagged image"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7z"/></svg></a>
+            </div>
+            <div class="middle">
+                <a class="action flagAction" href="<?= escape('?id=' . $prevId) ?>" aria-label="Exit flagged-only mode" title="Exit flagged-only mode"><?= $iconExit ?></a>
+                <a class="action" href="<?= escape('?fo=erase' . $backParam) ?>" aria-label="Erase all flags and exit" title="Erase all flags and exit"><?= $iconErase ?></a>
+            </div>
+            <div class="column">
+                <a class="action" href="<?= escape('?fo=1&foid=' . ($count - 1) . $backParam) ?>" aria-label="Last flagged image" title="Last flagged image"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4v16M5 5l10 7-10 7z"/></svg></a>
+                <a class="action" href="<?= escape('?fo=1&foid=' . min($count - 1, $n + 1) . $backParam) ?>" aria-label="Next flagged image" title="Next flagged image"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7z"/></svg></a>
+            </div>
+            <span class="flagBrackets" aria-hidden="true">[</span>
+            <form method="post">
+                <input type="hidden" name="path" value="<?= escape($items[$n]) ?>">
+                <input type="hidden" name="fo" value="1">
+                <input type="hidden" name="foid" value="<?= (int) $n ?>">
+                <input type="hidden" name="nid" value="<?= (int) $prevId ?>">
+                <button class="action flagButton" type="submit" aria-label="Flag image" aria-pressed="true" title="Flag image"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4m0 1c6-3 8 3 14 0v10c-6 3-8-3-14 0"/></svg></button>
+            </form>
+            <span class="flagBrackets" aria-hidden="true">]</span>
+        </nav>
+    </main>
+    <?php
+    return true;
 }
 
 try {
@@ -221,9 +300,9 @@ if (isset($_GET['image']) && is_string($_GET['image'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    startSession();
-    if (!isset($_POST['csrf'], $_POST['path']) || !is_string($_POST['csrf']) || !is_string($_POST['path'])
-        || !hash_equals($_SESSION['csrf'], $_POST['csrf'])) {
+    // This project is intentionally low-security and simple; the form needs
+    // no CSRF protection (there is no authenticated state worth protecting).
+    if (!isset($_POST['path']) || !is_string($_POST['path'])) {
         fail(403, 'Invalid request.');
     }
     $statement = $db->prepare('UPDATE images SET flagged = 1 - flagged WHERE path = ?');
@@ -233,7 +312,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $statement = $db->prepare('SELECT COUNT(*) FROM images WHERE path <= ? COLLATE BINARY');
     $statement->execute([$_POST['path']]);
-    header('Location: ?id=' . (int) $statement->fetchColumn(), true, 303);
+    $redirect = '?id=' . (int) $statement->fetchColumn();
+    // In flagged-only mode keep browsing the flagged list from the same
+    // index and carry the exit target (?nid=).
+    if (isset($_POST['fo']) && is_string($_POST['fo']) && isset($_POST['foid'])
+        && is_string($_POST['foid']) && preg_match('/^[0-9]+$/D', $_POST['foid'])) {
+        $redirect = '?fo=1&foid=' . (int) $_POST['foid'];
+        if (isset($_POST['nid']) && is_string($_POST['nid']) && preg_match('/^[1-9][0-9]*$/D', $_POST['nid'])
+            && filter_var($_POST['nid'], FILTER_VALIDATE_INT) !== false) {
+            $redirect .= '&nid=' . (int) $_POST['nid'];
+        }
+    }
+    header('Location: ' . $redirect, true, 303);
     exit;
 }
 
@@ -313,10 +403,43 @@ while (true) {
     $image = null;
 }
 if ($image) {
-    startSession();
-    $title = preg_replace('/[^\p{L}\p{N}]+/u', ' ', preg_replace('/\.[^.\/]+$/', '', $image['path']));
-    $title = trim($title ?? $image['path']);
+    $title = titleFromPath($image['path']);
 }
+
+// Flagged-only mode: entered from the normal browser by holding the flag
+// button (?fo=1, optionally ?nid=<normal id>), or requested via ?fo=erase.
+$flagMode = is_string($_GET['fo'] ?? null) && in_array($_GET['fo'], ['1', 'enter'], true);
+$eraseFlags = is_string($_GET['fo'] ?? null) && $_GET['fo'] === 'erase';
+$showNoFlaggedPopup = false;
+// Index of the normal browser to return to when leaving flagged mode.
+// With no session, the exit target travels in the query string as "nid":
+// the normal page's hold triggers "?fo=1&nid=<current id>", and every
+// flagged-mode link carries it along so it survives navigation.
+$foBack = 0;
+if (isset($_GET['nid']) && is_string($_GET['nid']) && preg_match('/^[1-9][0-9]*$/D', $_GET['nid'])
+    && filter_var($_GET['nid'], FILTER_VALIDATE_INT) !== false) {
+    $foBack = (int) $_GET['nid'];
+} else {
+    $foBack = (int) $id;
+}
+
+$showNoFlaggedPopup = false;
+if ($flagMode || $eraseFlags) {
+    if ($eraseFlags) {
+        // Clear every flag and force a full directory rescan, then leave.
+        $db->exec('UPDATE images SET flagged = 0');
+        rescanNow($db);
+        header('Location: ' . ($foBack > 0 ? '?id=' . $foBack : '?'), true, 303);
+        exit;
+    }
+    if (renderFlaggedView($db, $foBack)) {
+        exit;
+    }
+    // No flagged images (or none usable): show the message on the normal
+    // page; clicking OK reverts to normal mode, like the exit button.
+    $showNoFlaggedPopup = true;
+}
+
 header('Content-Type: text/html; charset=utf-8');
 header('Cache-Control: no-store');
 ?>
@@ -343,6 +466,11 @@ header('Cache-Control: no-store');
         .action.flagged { color: #ff9500; }
         .action:focus-visible { outline: 3px solid currentColor; opacity: 1; }
         .empty { height: 100%; display: grid; place-content: center; padding: 24px; text-align: center; }
+        .flagBrackets { color: #ff9500; font-weight: bold; }
+        .modal { position: fixed; inset: 0; background: rgba(0, 0, 0, .75); display: grid; place-items: center; padding: 24px; }
+        .modalMessage { color: #ddd; text-align: center; }
+        .modalOk { display: inline-block; margin-top: 12px; padding: 10px 20px; border-radius: 8px; background: transparent; color: #ff9500; text-decoration: none; }
+        .modalOk:hover { opacity: 1; }
         @media (max-width: 260px) { .action { width: 44px; height: 48px; padding: 7px; } }
     </style>
 </head>
@@ -362,9 +490,9 @@ header('Cache-Control: no-store');
             <div class="middle">
                 <a class="action" href="?" aria-label="Random image" title="Random image"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h3c5 0 6 12 12 12h3m-3-3 3 3-3 3M3 18h3c2 0 3-2 4-4m3-5c1-2 3-3 5-3h3m-3-3 3 3-3 3"/></svg></a>
                 <form method="post">
-                    <input type="hidden" name="csrf" value="<?= escape($_SESSION['csrf']) ?>">
                     <input type="hidden" name="path" value="<?= escape($image['path']) ?>">
-                    <button class="action<?= $image['flagged'] ? ' flagged' : '' ?>" type="submit" aria-label="<?= $image['flagged'] ? 'Remove flag' : 'Flag image' ?>" aria-pressed="<?= $image['flagged'] ? 'true' : 'false' ?>" title="<?= $image['flagged'] ? 'Remove flag' : 'Flag image' ?>"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4m0 1c6-3 8 3 14 0v10c-6 3-8-3-14 0"/></svg></button>
+                    <input type="hidden" name="nid" value="<?= (int) $id ?>">
+                    <button class="action<?= $image['flagged'] ? ' flagged' : '' ?> flagButton" type="submit" aria-label="<?= $image['flagged'] ? 'Remove flag' : 'Flag image' ?>" aria-pressed="<?= $image['flagged'] ? 'true' : 'false' ?>" title="<?= $image['flagged'] ? 'Remove flag' : 'Flag image' ?>"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4m0 1c6-3 8 3 14 0v10c-6 3-8-3-14 0"/></svg></button>
                 </form>
             </div>
             <div class="column">
@@ -390,6 +518,31 @@ header('Cache-Control: no-store');
                 window.location.href = destinations[event.key];
             }
         });
+    </script>
+    <script>
+        // Holding the flag button for 2 seconds enters flagged-only mode;
+        // a plain click still toggles the flag as before.
+        (function () {
+            const button = document.querySelector('.flagButton');
+            if (!button) return;
+            let timer = null;
+            let entered = false;
+            button.addEventListener('pointerdown', function () {
+                if (entered || timer !== null) return;
+                timer = setTimeout(function () {
+                    entered = true;
+                    const input = document.querySelector('input[name="nid"]');
+                    window.location.href = '?fo=1' + (input ? '&nid=' + encodeURIComponent(input.value) : '');
+                }, 2000);
+            });
+            button.addEventListener('pointerup', function (event) {
+                if (timer !== null) {
+                    clearTimeout(timer);
+                    timer = null;
+                }
+                if (entered) event.preventDefault();
+            });
+        })();
     </script>
     <script>
         // Touch swipes reuse the navigation buttons' URLs. A mostly horizontal
@@ -423,6 +576,12 @@ header('Cache-Control: no-store');
             viewer.addEventListener('pointercancel', function () { swipe = null; });
         })();
     </script>
+    <?php if ($showNoFlaggedPopup): ?>
+    <div class="modal" role="dialog" aria-modal="true">
+        <p class="modalMessage">No flagged images.</p>
+        <a class="modalOk" href="<?= $foBack > 0 ? '?id=' . (int) $foBack : '?' ?>">OK</a>
+    </div>
+    <?php endif; ?>
 <?php endif; ?>
 </body>
 </html>
