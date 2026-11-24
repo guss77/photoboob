@@ -307,7 +307,7 @@ function renderFlaggedView(PDO $db, int $prevId): bool
 					<input type="hidden" name="fo" value="1">
 					<input type="hidden" name="foid" value="<?= (int) $n ?>">
 					<input type="hidden" name="nid" value="<?= (int) $prevId ?>">
-					<button class="action flagButton" type="submit" aria-label="Flag image" aria-pressed="true" title="Flag image"><?= ICON_FLAG ?></button>
+					<button class="action flagged flagButton" type="submit" aria-label="Remove flag" aria-pressed="true" title="Remove flag"><?= ICON_FLAG ?></button>
 				</form>
 			</div>
 			<div class="column">
