@@ -20,7 +20,7 @@ frameworks.
 - **Simple to deploy.** A change that adds files, config, or deployment steps
   is probably wrong.
 - **No extra features unless specifically required.** Skip bookmarklets,
-  analytics, account systems, alternate storage backends, etc. — nothing
+  security BKMs, analytics, account systems, alternate storage backends, etc. — nothing
   beyond what the viewer needs today.
 - **Keep it readable.** Small diffs in the existing style; new code should
   fit the current structure (procedural, single file).
@@ -33,3 +33,6 @@ frameworks.
   with the dev server (e.g. `php -S localhost:8000 -t .` and `curl`).
 - If a change affects anything a human uses (mode flows, forms, URLs), show
   the new URLs/behaviour in the summary for verification.
+- Documentation: do not insert large comments to explain agent's reasoning:
+  use minimal comments only when otherwise readability suffers. Use PHPDoc
+  style documentation for functions and classes.
