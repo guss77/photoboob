@@ -423,23 +423,6 @@ if (isset($_GET['nid']) && is_string($_GET['nid']) && preg_match('/^[1-9][0-9]*$
     $foBack = (int) $id;
 }
 
-$showNoFlaggedPopup = false;
-if ($flagMode || $eraseFlags) {
-    if ($eraseFlags) {
-        // Clear every flag and force a full directory rescan, then leave.
-        $db->exec('UPDATE images SET flagged = 0');
-        rescanNow($db);
-        header('Location: ' . ($foBack > 0 ? '?id=' . $foBack : '?'), true, 303);
-        exit;
-    }
-    if (renderFlaggedView($db, $foBack)) {
-        exit;
-    }
-    // No flagged images (or none usable): show the message on the normal
-    // page; clicking OK reverts to normal mode, like the exit button.
-    $showNoFlaggedPopup = true;
-}
-
 header('Content-Type: text/html; charset=utf-8');
 header('Cache-Control: no-store');
 ?>
@@ -475,6 +458,25 @@ header('Cache-Control: no-store');
     </style>
 </head>
 <body>
+<?php
+// Render the flagged-only browser now that the page skeleton (and its
+// CSS) is in place; exits the request on success.
+if ($flagMode || $eraseFlags) {
+    if ($eraseFlags) {
+        // Clear every flag and force a full directory rescan, then leave.
+        $db->exec('UPDATE images SET flagged = 0');
+        rescanNow($db);
+        header('Location: ' . ($foBack > 0 ? '?id=' . $foBack : '?'), true, 303);
+        exit;
+    }
+    if (renderFlaggedView($db, $foBack)) {
+        exit;
+    }
+    // No flagged images (or none usable): show the message on the normal
+    // page; clicking OK reverts to normal mode, like the exit button.
+    $showNoFlaggedPopup = true;
+}
+?>
 <?php if (!$image): ?>
     <main class="empty"><p>No images found. Add images to this directory or its subdirectories.</p><p>The gallery is rescanned hourly when accessed.</p></main>
 <?php else: ?>
