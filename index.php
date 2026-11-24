@@ -302,20 +302,18 @@ function renderFlaggedView(PDO $db, int $prevId): bool
 			<div class="middle">
 				<a class="action flagAction" href="<?= escape('?id=' . $prevId) ?>" aria-label="Exit flagged-only mode" title="Exit flagged-only mode"><?= ICON_EXIT ?></a>
 				<a class="action" href="<?= escape('?fo=erase' . $backParam) ?>" aria-label="Erase all flags and exit" title="Erase all flags and exit"><?= ICON_ERASE ?></a>
+				<form method="post">
+					<input type="hidden" name="path" value="<?= escape($items[$n]) ?>">
+					<input type="hidden" name="fo" value="1">
+					<input type="hidden" name="foid" value="<?= (int) $n ?>">
+					<input type="hidden" name="nid" value="<?= (int) $prevId ?>">
+					<button class="action flagButton" type="submit" aria-label="Flag image" aria-pressed="true" title="Flag image"><?= ICON_FLAG ?></button>
+				</form>
 			</div>
 			<div class="column">
 				<a class="action" href="<?= escape('?fo=1&foid=' . ($count - 1) . $backParam) ?>" aria-label="Last flagged image" title="Last flagged image"><?= ICON_LAST ?></a>
 				<a class="action" href="<?= escape('?fo=1&foid=' . min($count - 1, $n + 1) . $backParam) ?>" aria-label="Next flagged image" title="Next flagged image"><?= ICON_NEXT ?></a>
 			</div>
-			<span class="flagBrackets" aria-hidden="true">[</span>
-			<form method="post">
-				<input type="hidden" name="path" value="<?= escape($items[$n]) ?>">
-				<input type="hidden" name="fo" value="1">
-				<input type="hidden" name="foid" value="<?= (int) $n ?>">
-				<input type="hidden" name="nid" value="<?= (int) $prevId ?>">
-				<button class="action flagButton" type="submit" aria-label="Flag image" aria-pressed="true" title="Flag image"><?= ICON_FLAG ?></button>
-			</form>
-			<span class="flagBrackets" aria-hidden="true">]</span>
 		</nav>
 	</main>
 	<?php
